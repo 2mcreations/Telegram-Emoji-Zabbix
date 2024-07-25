@@ -1,0 +1,1 @@
+# Telegram-Emoji-Zabbix
