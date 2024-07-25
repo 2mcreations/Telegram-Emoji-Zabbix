@@ -6,6 +6,7 @@ This template provides a custom media type configuration for Zabbix 7 LTS to sen
 
 - Utilizes Telegram's MarkdownV2 for message formatting
 - Supports the following text styles:
+  - \_\_Underscore__
   - \*\*\*Bold***
   - \~~Strikethrough~~
   - \`Code` (for inline code or copy text)
