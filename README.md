@@ -7,11 +7,10 @@ This template provides a custom media type configuration for Zabbix 7 LTS to sen
 - Utilizes Telegram's MarkdownV2 for message formatting
 - Supports the following text styles:
   - **Bold**
-  - *Italic*
   - ~~Strikethrough~~
   - `Code` (for inline code or copy text)
-  - ```code```
-  - (link)[https://github.com/2mcreations/Telegram-Emoji-Zabbix]
+  - ```Code blocks``` (for multi-line code or text blocks)
+  - [link](https://github.com/2mcreations/Telegram-Emoji-Zabbix)
 - Includes hyperlinks to directly access issues in Zabbix
 - Uses emojis to visually represent alert severity
 
