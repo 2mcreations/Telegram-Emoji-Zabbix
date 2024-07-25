@@ -1,0 +1,78 @@
+{
+    "zabbix_export": {
+        "version": "7.0",
+        "media_types": [
+            {
+                "name": "Telegram emoji",
+                "type": "WEBHOOK",
+                "parameters": [
+                    {
+                        "name": "Message",
+                        "value": "{ALERT.MESSAGE}"
+                    },
+                    {
+                        "name": "ParseMode",
+                        "value": "markdownv2"
+                    },
+                    {
+                        "name": "Severity",
+                        "value": "{EVENT.SEVERITY}"
+                    },
+                    {
+                        "name": "Subject",
+                        "value": "{ALERT.SUBJECT}"
+                    },
+                    {
+                        "name": "To",
+                        "value": "{ALERT.SENDTO}"
+                    },
+                    {
+                        "name": "Token",
+                        "value": "<your-telegram-bot-token>"
+                    },
+                    {
+                        "name": "Trigger_status",
+                        "value": "{TRIGGER.STATUS}"
+                    }
+                ],
+                "status": "DISABLED",
+                "script": "var Telegram = {\n    token: null,\n    to: null,\n    message: null,\n    proxy: null,\n    parse_mode: null,\n\n    escapeMarkup: function (str, mode) {\n        switch (mode) {\n            case 'markdown':\n               // return str.replace(/([_*\\[`])/g, '\\\\$&');\n               return str.replace(/([_])/g, '\\\\$&');\n\n            case 'markdownv2':\n             return str.replace(/(\\[[^\\]]+\\]\\([^\\)]+\\))|(\\*\\*\\*|\\*\\*|__)|(`+)|([_[\\]()>#+\\-=|{}.!])/g, function(match, link, bold, code, char) {\n                if (link) return link;\n                if (bold) return bold;\n                if (code) return code;\n                return '\\\\' + (char || match);\n             });\n\n            default:\n                return str;\n        }\n    },\n\n    sendMessage: function () {\n        var params = {\n            chat_id: Telegram.to,\n            text: Telegram.message,\n            disable_web_page_preview: true,\n            disable_notification: false\n        },\n        data,\n        response,\n        request = new HttpRequest(),\n        url = 'https://api.telegram.org/bot' + Telegram.token + '/sendMessage';\n\n        if (Telegram.parse_mode !== null) {\n            params['parse_mode'] = Telegram.parse_mode;\n        }\n\n        if (Telegram.proxy) {\n            request.setProxy(Telegram.proxy);\n        }\n\n        request.addHeader('Content-Type: application/json');\n        data = JSON.stringify(params);\n\n        // Remove replace() function if you want to see the exposed token in the log file.\n        Zabbix.log(4, '[Telegram Webhook] URL: ' + url.replace(Telegram.token, '<TOKEN>'));\n        Zabbix.log(4, '[Telegram Webhook] params: ' + data);\n        response = request.post(url, data);\n        Zabbix.log(4, '[Telegram Webhook] HTTP code: ' + request.getStatus());\n\n        try {\n            response = JSON.parse(response);\n        }\n        catch (error) {\n            response = null;\n        }\n\n        if (request.getStatus() !== 200 || typeof response.ok !== 'boolean' || response.ok !== true) {\n            if (typeof response.description === 'string') {\n                throw response.description;\n            }\n            else {\n                throw 'Unknown error. Check debug log for more information.';\n            }\n        }\n    }\n};\n\ntry {\n    var params = JSON.parse(value);\n    var icon;\n\n    if (typeof params.Token === 'undefined') {\n        throw 'Incorrect value is given for parameter \"Token\": parameter is missing';\n    }\n\n    Telegram.token = params.Token;\n\n    if (params.HTTPProxy) {\n        Telegram.proxy = params.HTTPProxy;\n    } \n\n    params.ParseMode = params.ParseMode.toLowerCase();\n    \n    if (['markdown', 'html', 'markdownv2'].indexOf(params.ParseMode) !== -1) {\n        Telegram.parse_mode = params.ParseMode;\n    }\n\n    if (params.Severity == 'Info') {\n        icon = '\ud83d\udc40';\n    } else if (params.Severity == 'Warning') {\n        icon = '\u26a0\ufe0f';\n    } else if (params.Severity == 'Average') {\n        icon = '\ud83d\ude32';\n    } else if (params.Severity == 'High') {\n        icon = '\ud83d\ude28';\n    } else if (params.Severity == 'Disaster') {\n        icon = String.fromCodePoint('0x1F525');\n    } else {\n        icon = '';\n    }\n\n    if (params.Trigger_status == 'OK') {\n        icon = '\u2705';\n    }\n    Telegram.to = params.To;\n    Telegram.message = icon + '  ' + params.Subject + '\\n' + params.Message;\n\n    if (['markdown', 'markdownv2'].indexOf(params.ParseMode) !== -1) {\n        Telegram.message = Telegram.escapeMarkup(Telegram.message, params.ParseMode);\n    }\n\n    Telegram.sendMessage();\n\n    return 'OK';\n}\ncatch (error) {\n    Zabbix.log(4, '[Telegram Webhook] notification failed: ' + error);\n    throw 'Sending failed: ' + error + '.';\n}",
+                "timeout": "10s",
+                "process_tags": "YES",
+                "description": "1. Register bot: send \"/newbot\" to @BotFather and follow instructions\n2. Copy and paste the obtained token into the \"Token\" field above\n3. If you want to send personal notifications, you need to get chat id of the user you want to send messages to:\n    3.1. Send \"/getid\" to \"@myidbot\" in Telegram messenger\n    3.2. Copy returned chat id and save it in the \"Telegram Webhook\" media for the user\n    3.3. Ask the user to send \"/start\" to your bot (Telegram bot won't send anything to the user without it)\n4. If you want to send group notifications, you need to get group id of the group you want to send messages to:\n    4.1. Add \"@myidbot\" to your group\n    4.2. Send \"/getgroupid@myidbot\" in your group\n    4.3. Copy returned group id save it in the \"Telegram Webhook\" media for the user you created for  group notifications\n    4.4. Send \"/start@your_bot_name_here\" in your group (Telegram bot won't send anything to the group without it)",
+                "message_templates": [
+                    {
+                        "event_source": "TRIGGERS",
+                        "operation_mode": "PROBLEM",
+                        "subject": "***Problem {HOST.NAME}***",
+                        "message": "Problem started at {EVENT.TIME} on {EVENT.DATE}\nProblem name: {EVENT.NAME}\nHost: `{HOST.NAME}`\nSeverity: {EVENT.SEVERITY}\nOperational data: {EVENT.OPDATA}\nOriginal problem ID: {EVENT.ID}\n{TRIGGER.URL}\n[INFO]({$ZABBIX.URL}/tr_events.php?triggerid={TRIGGER.ID}&eventid={EVENT.ID})\n\n{EVENT.TAGS}\n#smi{EVENT.ID}"
+                    },
+                    {
+                        "event_source": "TRIGGERS",
+                        "operation_mode": "RECOVERY",
+                        "subject": "***Resolved {EVENT.RECOVERY.NAME} on {EVENT.DURATION}***",
+                        "message": "Problem has been resolved in {EVENT.DURATION} at {EVENT.RECOVERY.TIME} on {EVENT.RECOVERY.DATE}\nProblem name: {EVENT.NAME}\nHost: `{HOST.NAME}`\nSeverity: {EVENT.SEVERITY}\nOriginal problem ID: {EVENT.ID}\n{TRIGGER.URL}\n[INFO]({$ZABBIX.URL}/tr_events.php?triggerid={TRIGGER.ID}&eventid={EVENT.ID})\n\n{EVENT.TAGS}\n#smi{EVENT.ID}"
+                    },
+                    {
+                        "event_source": "TRIGGERS",
+                        "operation_mode": "UPDATE",
+                        "subject": "Aggiornamento: {EVENT.NAME}",
+                        "message": "{USER.FULLNAME} {EVENT.UPDATE.ACTION} problema alle {EVENT.UPDATE.DATE} {EVENT.UPDATE.TIME}.\n{EVENT.UPDATE.MESSAGE}\n\nStato attuale: {EVENT.STATUS}, riconosciuto: {EVENT.ACK.STATUS}.\n{EVENT.TAGS} \n#smi{EVENT.ID}"
+                    },
+                    {
+                        "event_source": "DISCOVERY",
+                        "operation_mode": "PROBLEM",
+                        "subject": "Discovery: {DISCOVERY.DEVICE.STATUS} {DISCOVERY.DEVICE.IPADDRESS}",
+                        "message": "Discovery rule: {DISCOVERY.RULE.NAME}\n\nDevice IP: {DISCOVERY.DEVICE.IPADDRESS}\nDevice DNS: {DISCOVERY.DEVICE.DNS}\nDevice status: {DISCOVERY.DEVICE.STATUS}\nDevice uptime: {DISCOVERY.DEVICE.UPTIME}\n\nDevice service name: {DISCOVERY.SERVICE.NAME}\nDevice service port: {DISCOVERY.SERVICE.PORT}\nDevice service status: {DISCOVERY.SERVICE.STATUS}\nDevice service uptime: {DISCOVERY.SERVICE.UPTIME}"
+                    },
+                    {
+                        "event_source": "AUTOREGISTRATION",
+                        "operation_mode": "PROBLEM",
+                        "subject": "Registrazione automatica: {HOST.HOST}",
+                        "message": "Host name: {HOST.HOST}\nHost IP: {HOST.IP}\nAgent port: {HOST.PORT}"
+                    }
+                ]
+            }
+        ]
+    }
+}
